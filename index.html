@@ -74,11 +74,15 @@
 					message.innerHTML = e;
 					message.className = 'error animated bounce';
 					return;
-				}			
+				}
 				
 				hideSplash();
-				message.innerHTML = 'Click on the outline to use as the bin';
+				message.innerHTML = 'Click on the outline to use as the bin, then click "Set Quantities" to configure part quantities';
 				message.className = 'active animated bounce';
+				
+				// 存储SVG供后续使用，但不自动显示面板
+				currentSvg = svg;
+				quantitybutton.className = 'button quantity animated bounce';
 				
 				attachSvgListeners(svg);
 			};
@@ -120,11 +124,19 @@
 			var configbutton = document.getElementById('configbutton');
 			var configsave = document.getElementById('configsave');
 			
+			var partQuantity = document.getElementById('partQuantity');
+			var partList = document.getElementById('partList');
+			var quantitySave = document.getElementById('quantitySave');
+			var quantitybutton = document.getElementById('quantitybutton');
+			
 			var zoomin = document.getElementById('zoominbutton');
 			var zoomout = document.getElementById('zoomoutbutton');
 			var exit = document.getElementById('exitbutton');
 			
 			var isworking = false;
+			var partQuantities = {}; // 存储每个零件的数量
+			var currentSvg = null; // 存储当前的SVG，用于零件数量设置
+			var quantityPanelVisible = false; // 零件数量面板可见状态
 			
 			start.onclick = function(){
 				if(this.className == 'button start disabled'){
@@ -192,6 +204,24 @@
 				return false;
 			}
 			
+			// 零件数量设置按钮
+			quantitybutton.onclick = function(){
+				if(this.className == 'button quantity disabled'){
+					return false;
+				}
+				if(!quantityPanelVisible){
+					if(currentSvg){
+						showPartQuantityPanel(currentSvg);
+					}
+				}
+				else{
+					hidePartQuantityPanel();
+				}
+				quantityPanelVisible = !quantityPanelVisible;
+				
+				return false;
+			}
+			
 			configsave.onclick = function(){
 				var c = {};
 				var inputs = document.querySelectorAll('#config input');
@@ -215,6 +245,330 @@
 				config.className = '';
 				return false;
 			}
+			
+			// 计算元素边界框的辅助函数
+			function getElementBBox(element) {
+				try {
+					if (element.getBBox) {
+						return element.getBBox();
+					}
+				} catch (e) {
+					// getBBox可能失败，使用备用方法
+				}
+				
+				// 备用方法：遍历所有路径和形状
+				var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+				var hasValidBounds = false;
+				
+				function processElement(el) {
+					if (el.nodeType !== 1) return;
+					
+					var tagName = el.tagName.toLowerCase();
+					if (tagName === 'path') {
+						var d = el.getAttribute('d');
+						if (d) {
+							// 简单解析路径中的数字
+							var numbers = d.match(/-?\d+\.?\d*/g);
+							if (numbers) {
+								for (var i = 0; i < numbers.length; i += 2) {
+									if (i + 1 < numbers.length) {
+										var x = parseFloat(numbers[i]);
+										var y = parseFloat(numbers[i + 1]);
+										if (!isNaN(x) && !isNaN(y)) {
+											minX = Math.min(minX, x);
+											minY = Math.min(minY, y);
+											maxX = Math.max(maxX, x);
+											maxY = Math.max(maxY, y);
+											hasValidBounds = true;
+										}
+									}
+								}
+							}
+						}
+					} else if (tagName === 'polygon' || tagName === 'polyline') {
+						var points = el.getAttribute('points');
+						if (points) {
+							var coords = points.trim().split(/[\s,]+/);
+							for (var i = 0; i < coords.length; i += 2) {
+								if (i + 1 < coords.length) {
+									var x = parseFloat(coords[i]);
+									var y = parseFloat(coords[i + 1]);
+									if (!isNaN(x) && !isNaN(y)) {
+										minX = Math.min(minX, x);
+										minY = Math.min(minY, y);
+										maxX = Math.max(maxX, x);
+										maxY = Math.max(maxY, y);
+										hasValidBounds = true;
+									}
+								}
+							}
+						}
+					} else if (tagName === 'rect') {
+						var x = parseFloat(el.getAttribute('x') || 0);
+						var y = parseFloat(el.getAttribute('y') || 0);
+						var width = parseFloat(el.getAttribute('width') || 0);
+						var height = parseFloat(el.getAttribute('height') || 0);
+						if (!isNaN(x) && !isNaN(y) && !isNaN(width) && !isNaN(height)) {
+							minX = Math.min(minX, x);
+							minY = Math.min(minY, y);
+							maxX = Math.max(maxX, x + width);
+							maxY = Math.max(maxY, y + height);
+							hasValidBounds = true;
+						}
+					}
+					
+					// 递归处理子元素
+					for (var i = 0; i < el.children.length; i++) {
+						processElement(el.children[i]);
+					}
+				}
+				
+				processElement(element);
+				
+				if (hasValidBounds) {
+					return {
+						x: minX,
+						y: minY,
+						width: maxX - minX,
+						height: maxY - minY
+					};
+				}
+				
+				return { x: 0, y: 0, width: 100, height: 100 };
+			}
+			
+			// 零件数量设置相关函数
+			function showPartQuantityPanel(svg) {
+				partList.innerHTML = '';
+				partQuantities = {};
+				
+				// 获取所有零件元素，排除bin
+				var allElements = Array.prototype.slice.call(svg.childNodes);
+				
+				// 使用SVGnest的getParts方法来获取树结构
+				var tree = window.SvgNest.getParts(allElements);
+				
+				// 只为树的顶层元素创建数量设置项
+				tree.forEach(function(treePart, treeIndex) {
+					var partItem = document.createElement('div');
+					partItem.className = 'part-item';
+					
+					// 计算零件边界框（包括所有子元素）
+					var bbox = getPartBBox(treePart, allElements);
+					var padding = Math.max(bbox.width, bbox.height) * 0.1; // 10%的边距
+					var viewBox = (bbox.x - padding) + ' ' + (bbox.y - padding) + ' ' +
+								  (bbox.width + 2 * padding) + ' ' + (bbox.height + 2 * padding);
+					
+					// 创建零件预览
+					var preview = document.createElement('div');
+					preview.className = 'part-preview';
+					var previewSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+					previewSvg.setAttribute('viewBox', viewBox);
+					
+					// 添加主要零件元素
+					var mainElement = allElements[treePart.source];
+					if (mainElement) {
+						var partClone = mainElement.cloneNode(true);
+						previewSvg.appendChild(partClone);
+					}
+					
+					// 添加空洞元素（如果有的话）
+					if (treePart.children && treePart.children.length > 0) {
+						addChildrenToSvg(treePart.children, previewSvg, allElements);
+					}
+					
+					preview.appendChild(previewSvg);
+					
+					// 添加点击事件显示全屏预览
+					preview.onclick = function() {
+						showPartModal(treePart, 'Tree Part ' + (treeIndex + 1), viewBox, allElements);
+					};
+					
+					// 创建零件信息
+					var info = document.createElement('div');
+					info.className = 'part-info';
+					
+					var name = document.createElement('div');
+					name.className = 'part-name';
+					name.textContent = 'Tree Part ' + (treeIndex + 1);
+					
+					var quantityDiv = document.createElement('div');
+					quantityDiv.className = 'part-quantity';
+					
+					var label = document.createElement('label');
+					label.textContent = 'Quantity: ';
+					
+					var input = document.createElement('input');
+					input.type = 'number';
+					input.min = '1';
+					input.value = '1';
+					input.setAttribute('data-tree-index', treeIndex); // 使用树结构的索引
+					
+					quantityDiv.appendChild(label);
+					quantityDiv.appendChild(input);
+					
+					info.appendChild(name);
+					info.appendChild(quantityDiv);
+					
+					partItem.appendChild(preview);
+					partItem.appendChild(info);
+					partList.appendChild(partItem);
+					
+					// 初始化数量，使用树结构的索引
+					partQuantities[treeIndex] = 1;
+				});
+				
+				partQuantity.className = 'active';
+				quantityPanelVisible = true;
+				quantitybutton.className = 'button close';
+			}
+			
+			// 辅助函数：递归添加子元素到SVG
+			function addChildrenToSvg(children, svg, allElements) {
+				children.forEach(function(child) {
+					var childElement = allElements[child.source];
+					if (childElement) {
+						var childClone = childElement.cloneNode(true);
+						svg.appendChild(childClone);
+					}
+					
+					if (child.children && child.children.length > 0) {
+						addChildrenToSvg(child.children, svg, allElements);
+					}
+				});
+			}
+			
+			// 辅助函数：计算零件的边界框（包括所有子元素）
+			function getPartBBox(part, allElements) {
+				var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+				var hasValidBounds = false;
+				
+				// 计算主要元素的边界框
+				var mainElement = allElements[part.source];
+				if (mainElement) {
+					var mainBBox = getElementBBox(mainElement);
+					minX = Math.min(minX, mainBBox.x);
+					minY = Math.min(minY, mainBBox.y);
+					maxX = Math.max(maxX, mainBBox.x + mainBBox.width);
+					maxY = Math.max(maxY, mainBBox.y + mainBBox.height);
+					hasValidBounds = true;
+				}
+				
+				// 递归计算子元素的边界框
+				if (part.children && part.children.length > 0) {
+					part.children.forEach(function(child) {
+						var childBBox = getPartBBox(child, allElements);
+						minX = Math.min(minX, childBBox.x);
+						minY = Math.min(minY, childBBox.y);
+						maxX = Math.max(maxX, childBBox.x + childBBox.width);
+						maxY = Math.max(maxY, childBBox.y + childBBox.height);
+						hasValidBounds = true;
+					});
+				}
+				
+				if (hasValidBounds) {
+					return {
+						x: minX,
+						y: minY,
+						width: maxX - minX,
+						height: maxY - minY
+					};
+				}
+				
+				return { x: 0, y: 0, width: 100, height: 100 };
+			}
+			
+			function hidePartQuantityPanel() {
+				partQuantity.className = '';
+				quantityPanelVisible = false;
+				quantitybutton.className = 'button quantity';
+			}
+			
+			quantitySave.onclick = function() {
+				// 收集所有零件的数量设置
+				var inputs = partList.querySelectorAll('input[type="number"]');
+				inputs.forEach(function(input) {
+					var treeIndex = parseInt(input.getAttribute('data-tree-index'));
+					var quantity = parseInt(input.value) || 1;
+					partQuantities[treeIndex] = quantity;
+				});
+				
+				// 将数量设置传递给SvgNest
+				if(window.SvgNest) {
+					window.SvgNest.setPartQuantities(partQuantities);
+				}
+				
+				hidePartQuantityPanel();
+				
+				// 显示开始按钮
+				start.className = 'button start animated bounce';
+				message.innerHTML = 'Successfully set tree part quantities, click to start nesting';
+				message.className = 'active animated bounce';
+				
+				return false;
+			};
+			
+			// 全屏模态框相关函数
+			var partModal = document.getElementById('partModal');
+			var partModalClose = document.getElementById('partModalClose');
+			var partModalTitle = document.getElementById('partModalTitle');
+			var partModalSvg = document.getElementById('partModalSvg');
+			
+			function showPartModal(part, title, viewBox, allElements) {
+				// 设置标题
+				partModalTitle.textContent = title;
+				
+				// 清空并创建新的SVG
+				partModalSvg.innerHTML = '';
+				var modalSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				modalSvg.setAttribute('viewBox', viewBox);
+				modalSvg.setAttribute('width', '100%');
+				modalSvg.setAttribute('height', '100%');
+				
+				// 添加主要零件元素
+				if (allElements && part.source !== undefined) {
+					var mainElement = allElements[part.source];
+					if (mainElement) {
+						var partClone = mainElement.cloneNode(true);
+						modalSvg.appendChild(partClone);
+					}
+					
+					// 添加空洞元素（如果有的话）
+					if (part.children && part.children.length > 0) {
+						addChildrenToSvg(part.children, modalSvg, allElements);
+					}
+				} else {
+					// 兼容旧的调用方式
+					var partClone = part.cloneNode(true);
+					modalSvg.appendChild(partClone);
+				}
+				
+				partModalSvg.appendChild(modalSvg);
+				
+				// 显示模态框
+				partModal.className = 'part-modal active';
+			}
+			
+			function hidePartModal() {
+				partModal.className = 'part-modal';
+			}
+			
+			// 关闭按钮点击事件
+			partModalClose.onclick = hidePartModal;
+			
+			// 点击模态框背景关闭
+			partModal.onclick = function(e) {
+				if (e.target === partModal) {
+					hidePartModal();
+				}
+			};
+			
+			// ESC键关闭模态框
+			document.addEventListener('keydown', function(e) {
+				if (e.key === 'Escape' && partModal.className.includes('active')) {
+					hidePartModal();
+				}
+			});
 			
 			upload.onclick = function(){
 				fileinput.click();
@@ -366,9 +720,13 @@
 						}					
 						
 						hideSplash();
-						message.innerHTML = 'Click on the outline to use as the bin';
+						message.innerHTML = 'Please select the board outline and click "Set Quantities" to configure part quantities.';
 						message.className = 'active animated bounce';
 						start.className = 'button start disabled';
+						
+						// 存储包含零件的SVG供后续使用，但不自动显示面板
+						currentSvg = svg;
+						quantitybutton.className = 'button quantity animated bounce';
 						
 						attachSvgListeners(svg);
 						attachSvgListeners(wholeSVG);
@@ -547,6 +905,7 @@
 				<li class="button start disabled" id="start"><span id="startlabel">Start Nest</span></li>
 				<li class="button download disabled" id="download">Download SVG</li>
 				<li class="button config" id="configbutton"></li>
+				<li class="button quantity" id="quantitybutton">Set Quantities</li>
 				<li class="button zoomin" id="zoominbutton"></li>
 				<li class="button zoomout" id="zoomoutbutton"></li>
 				<li class="button exit" id="exitbutton"></li>
@@ -580,7 +939,25 @@
 				</div>
 			</div>
 			
-			<div class="sidebar">				
+			<!-- 零件数量设置面板 -->
+			<div id="partQuantity">
+				<div id="partQuantityWrapper">
+					<h2>Set Part Quantities</h2>
+					<div id="partList"></div>
+					<a href="#" class="button" id="quantitySave">Confirm Quantities</a>
+				</div>
+			</div>
+			
+			<!-- 全屏模态框 -->
+			<div id="partModal" class="part-modal">
+				<div class="part-modal-content">
+					<div class="part-modal-close" id="partModalClose">&times;</div>
+					<div class="part-modal-title" id="partModalTitle">零件预览</div>
+					<div id="partModalSvg" class="part-modal-svg"></div>
+				</div>
+			</div>
+			
+			<div class="sidebar">
 				<div id="info">				
 				<h2 id="info_time"></h2>
 				<div class="progress"><div class="progress_inner" id="info_progress"></div></div>

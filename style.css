@@ -138,10 +138,17 @@ padding-left: 3.9em;
 }
 
 .button.config{
-background: #fff url(img/settings.svg) no-repeat;
-background-size: 1.2em 1.2em;
-background-position: 2em 50%;
-padding-left: 3.9em;
+	background: #fff url(img/settings.svg) no-repeat;
+	background-size: 1.2em 1.2em;
+	background-position: 2em 50%;
+	padding-left: 3.9em;
+}
+
+.button.quantity{
+	background: #fff url(img/settings.svg) no-repeat;
+	background-size: 1.2em 1.2em;
+	background-position: 1.5em 50%;
+	padding-left: 3.5em;
 }
 
 .button.close{
@@ -287,15 +294,16 @@ border-radius: 1em;
 }
 
 #config{
-max-height: 0;
-overflow: hidden;
-width: 20em;
-position: absolute;
-top: 0;
-left: 24.5em;
-background-color: #fff;
-border-radius: 0.5em;
-transition: max-height  0.5s;
+	max-height: 0;
+	overflow: hidden;
+	width: 20em;
+	position: absolute;
+	top: 0;
+	left: 24.5em;
+	background-color: #fff;
+	border-radius: 0.5em;
+	transition: max-height  0.5s;
+	z-index: 20;
 }
 
 #configwrapper{
@@ -394,7 +402,208 @@ clear: both;
 margin-top: 2em;
 }
 
-/* svg styles*/ 
+/* 零件数量设置面板样式 */
+#partQuantity{
+	max-height: 0;
+	overflow: hidden;
+	width: 25em;
+	position: absolute;
+	top: 0;
+	left: 30em;
+	background-color: #fff;
+	border-radius: 0.5em;
+	transition: max-height 0.5s;
+	z-index: 10;
+}
+
+#partQuantityWrapper{
+	padding: 2em 1.5em 2em 1.5em;
+	width: calc(100% - 3em);
+	max-height: 30em;
+	overflow-y: auto;
+}
+
+#partQuantity.active{
+	display: block;
+	max-height: 35em;
+	box-shadow: 0 2px 1px #d7dae1;
+	overflow: visible;
+}
+
+#partQuantity h2{
+margin: 0 0 1em 0;
+color: #617bb5;
+}
+
+.part-item{
+margin: 1em 0;
+padding: 0.5em;
+border: 1px solid #d7e9b7;
+border-radius: 0.3em;
+background-color: #f9f9f9;
+}
+
+.part-preview{
+width: 3em;
+height: 3em;
+float: left;
+margin-right: 1em;
+border: 1px solid #ccc;
+background-color: #fff;
+}
+
+.part-preview svg{
+width: 100%;
+height: 100%;
+}
+
+.part-preview svg *{
+fill: none !important;
+stroke: #3bb34a !important;
+stroke-width: 2px !important;
+vector-effect: non-scaling-stroke !important;
+stroke-linejoin: round !important;
+}
+
+.part-info{
+float: left;
+width: 60%;
+}
+
+.part-name{
+font-weight: bold;
+color: #617bb5;
+margin-bottom: 0.3em;
+}
+
+.part-quantity{
+display: flex;
+align-items: center;
+}
+
+.part-quantity label{
+margin-right: 0.5em;
+font-size: 0.9em;
+}
+
+.part-quantity input{
+width: 4em;
+padding: 0.3em;
+border: 1px solid #8aba5a;
+border-radius: 0.2em;
+text-align: center;
+}
+
+.part-item::after{
+content: "";
+display: table;
+clear: both;
+}
+
+#quantitySave{
+margin-top: 1.5em;
+width: auto;
+text-align: center;
+display: block;
+margin-left: auto;
+margin-right: auto;
+}
+
+/* 全屏模态框样式 */
+.part-modal {
+	display: none;
+	position: fixed;
+	z-index: 1000;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.8);
+	animation: fadeIn 0.3s;
+}
+
+.part-modal.active {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.part-modal-content {
+	background-color: #fff;
+	padding: 2em;
+	border-radius: 0.5em;
+	max-width: 80%;
+	max-height: 80%;
+	position: relative;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.part-modal-close {
+	position: absolute;
+	top: 1em;
+	right: 1em;
+	font-size: 2em;
+	font-weight: bold;
+	color: #999;
+	cursor: pointer;
+	width: 1.5em;
+	height: 1.5em;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background-color: #f0f0f0;
+	transition: all 0.3s;
+}
+
+.part-modal-close:hover {
+	background-color: #e0e0e0;
+	color: #333;
+}
+
+.part-modal-svg {
+	width: 100%;
+	height: auto;
+	max-width: 60em;
+	max-height: 40em;
+	border: 2px solid #d7e9b7;
+	border-radius: 0.3em;
+	background-color: #fff;
+}
+
+.part-modal-svg svg *{
+	fill: none !important;
+	stroke: #3bb34a !important;
+	stroke-width: 2px !important;
+	vector-effect: non-scaling-stroke !important;
+	stroke-linejoin: round !important;
+}
+
+.part-modal-title {
+	text-align: center;
+	margin-bottom: 1em;
+	color: #617bb5;
+	font-size: 1.5em;
+	font-weight: bold;
+}
+
+/* 缩略图悬停效果 */
+.part-preview {
+	cursor: pointer;
+	transition: all 0.3s;
+}
+
+.part-preview:hover {
+	transform: scale(1.05);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes fadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+/* svg styles*/
 
 #select{
 margin-top: 2em;
