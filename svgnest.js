@@ -6,9 +6,6 @@
  
 (function(root){
 	'use strict';
-
-	// 将SvgNest实例暴露到全局作用域
-	root.SvgNest = new SvgNest();
 	
 	function SvgNest(){
 		var self = this;
@@ -183,14 +180,51 @@
 		}
 		
 		/**
+		 * 检查是否可以开始嵌套算法
+		 * @returns {Object} 包含状态信息的对象
+		 */
+		this.canStart = function(){
+			if(!svg){
+				return { canStart: false, reason: 'noSvg', message: 'Please load an SVG file first' };
+			}
+			if(!bin){
+				return { canStart: false, reason: 'noBin', message: 'Please select a bin (container) from the parts' };
+			}
+			
+			// 检查是否有零件（除了bin之外）
+			var partCount = svg.childNodes ? svg.childNodes.length : 0;
+			if(partCount <= 1){
+				return { canStart: false, reason: 'noParts', message: 'Please load an SVG file with multiple parts' };
+			}
+			
+			// 尝试解析容器多边形来检查是否有效
+			try {
+				var testBinPolygon = SvgParser.polygonify(bin);
+				if(!testBinPolygon) {
+					return { canStart: false, reason: 'invalidBin', message: 'Selected bin could not be parsed by SvgParser.polygonify' };
+				}
+				
+				testBinPolygon = this.cleanPolygon(testBinPolygon);
+				
+				if(!testBinPolygon || testBinPolygon.length < 3){
+					return { canStart: false, reason: 'invalidBin', message: 'Selected bin cannot be converted to a valid polygon (cleaned polygon has ' + (testBinPolygon ? testBinPolygon.length : 0) + ' points). Please select a different part as bin.' };
+				}
+			} catch(e) {
+				return { canStart: false, reason: 'binParseError', message: 'Error parsing the selected bin: ' + e.message };
+			}
+			
+			return { canStart: true, reason: 'ready', message: 'Ready to start nesting' };
+		}
+		
+		/**
 		 * 开始嵌套算法
 		 * @param {Function} progressCallback - 进度回调函数
 		 * @param {Function} displayCallback - 显示回调函数
-		 * @returns {boolean} 是否成功启动
+		 * @returns {Object} 包含是否成功启动和错误信息的对象
 		 */
 		this.start = function(progressCallback, displayCallback){
 			if(!svg || !bin){
-				return false;
+				return { success: false, message: 'SVG or bin not loaded' };
 			}
 			
 			// 获取所有零件，排除容器
@@ -330,7 +364,7 @@
 			binPolygon = this.cleanPolygon(binPolygon);
 						
 			if(!binPolygon || binPolygon.length < 3){
-				return false;
+				return { success: false, message: 'Selected bin cannot be converted to a valid polygon (points: ' + (binPolygon ? binPolygon.length : 0) + ')' };
 			}
 			
 			// 计算容器边界
@@ -409,6 +443,8 @@
 				
 				progressCallback(progress);
 			}, 100);
+			
+			return { success: true, message: 'Nesting started successfully' };
 		}
 		
 		/**
@@ -1223,5 +1259,8 @@
 		
 		return pop[0];
 	}
+	
+	// 将SvgNest实例暴露到全局作用域
+	root.SvgNest = new SvgNest();
 	
 })(window);

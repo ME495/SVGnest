@@ -147,22 +147,44 @@
 				iterations = 0;
 				if(isworking){
 					stopnest();
+					display.className = 'disabled';
+					document.getElementById('info_time').setAttribute('style','display: none');
 				}
 				else{
-					startnest();
+					var nestingStarted = startnest();
+					// 只有在成功启动嵌套时才禁用display和隐藏时间信息
+					if(nestingStarted){
+						display.className = 'disabled';
+						document.getElementById('info_time').setAttribute('style','display: none');
+					}
 				}
-				
-				display.className = 'disabled';
-				document.getElementById('info_time').setAttribute('style','display: none');
 			};
 			
 			function startnest(){
+				// 检查是否可以开始嵌套（需要有SVG和bin）
+				var canStartResult = SvgNest.canStart();
+				
+				if(!canStartResult.canStart){
+					// 显示具体的错误消息
+					message.innerHTML = canStartResult.message;
+					message.className = 'error animated bounce';
+					return false; // 返回false表示未成功启动
+				}
+				
+				var nestResult = SvgNest.start(progress, renderSvg);
+				
+				if(!nestResult.success){
+					// 显示具体的错误消息
+					message.innerHTML = nestResult.message;
+					message.className = 'error animated bounce';
+					return false; // 返回false表示未成功启动
+				}
+				
 				// Once started, don't allow this anymore
 				document.removeEventListener('dragover', FileDragHover, false);
 				document.removeEventListener('dragleave', FileDragHover, false);
 				document.removeEventListener('drop', FileDrop, false);
 				
-				SvgNest.start(progress, renderSvg);
 				startlabel.innerHTML = 'Stop Nest';
 				start.className = 'button spinner';
 				configbutton.className = 'button config disabled';
@@ -176,6 +198,7 @@
 				}
 				
 				isworking = true;
+				return true; // 返回true表示成功启动
 			}
 			
 			function stopnest(){
@@ -183,6 +206,9 @@
 				startlabel.innerHTML = 'Start Nest';
 				start.className = 'button start';
 				configbutton.className = 'button config';
+				
+				// 恢复display区域为可交互状态
+				display.className = '';
 				
 				isworking = false;
 			}
@@ -861,6 +887,13 @@
 							
 							start.className = 'button start animated bounce';
 							message.className = '';
+							
+							// 显示提示消息，告诉用户已选择bin
+							var canStartResult = window.SvgNest.canStart();
+							if(canStartResult.canStart) {
+								message.innerHTML = 'Bin selected successfully. Click "Start Nest" to begin nesting.';
+								message.className = 'active animated bounce';
+							}
 						}
 					}
 				}
