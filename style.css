@@ -500,6 +500,48 @@ display: table;
 clear: both;
 }
 
+/* 零件数量导入导出控件样式 */
+.quantity-controls{
+	margin-bottom: 1.5em;
+	padding-bottom: 1em;
+	border-bottom: 1px solid #e0e0e0;
+}
+
+.quantity-file-controls{
+	display: flex;
+	gap: 0.5em;
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+.import-btn, .export-btn{
+	display: inline-block;
+	padding: 0.5em 1.2em;
+	background-color: #f0f7ea;
+	border: 1px solid #8aba5a;
+	border-radius: 0.3em;
+	color: #3bb34a;
+	cursor: pointer;
+	font-size: 0.8em;
+	text-align: center;
+	transition: all 0.3s ease;
+	text-decoration: none;
+	min-width: 5em;
+}
+
+.import-btn:hover, .export-btn:hover{
+	background-color: #e6f2db;
+	border-color: #7aa84a;
+	color: #2a8a3a;
+	text-decoration: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.import-btn:active, .export-btn:active{
+	background-color: #dae8d0;
+	box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+}
+
 #quantitySave{
 margin-top: 1.5em;
 width: auto;
@@ -724,6 +766,11 @@ cursor: pointer;
 
 #message.error{
 color: #ff314e;
+font-weight: bold;
+}
+
+#message.warning{
+color: #ff8c00;
 font-weight: bold;
 }
 

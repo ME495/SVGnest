@@ -128,6 +128,8 @@
 			var partList = document.getElementById('partList');
 			var quantitySave = document.getElementById('quantitySave');
 			var quantitybutton = document.getElementById('quantitybutton');
+			var quantityImport = document.getElementById('quantityImport');
+			var quantityExport = document.getElementById('quantityExport');
 			
 			var zoomin = document.getElementById('zoominbutton');
 			var zoomout = document.getElementById('zoomoutbutton');
@@ -506,6 +508,106 @@
 				message.className = 'active animated bounce';
 				
 				return false;
+			};
+			
+			// 导出零件数量配置到JSON文件
+			quantityExport.onclick = function() {
+				// 收集当前的数量设置
+				var inputs = partList.querySelectorAll('input[type="number"]');
+				var currentQuantities = {};
+				inputs.forEach(function(input) {
+					var treeIndex = parseInt(input.getAttribute('data-tree-index'));
+					var quantity = parseInt(input.value) || 1;
+					currentQuantities[treeIndex] = quantity;
+				});
+				
+				// 创建包含时间戳和配置的JSON对象
+				var exportData = {
+					timestamp: new Date().toISOString(),
+					version: "1.0",
+					description: "SVGnest Part Quantities Configuration",
+					quantities: currentQuantities
+				};
+				
+				// 生成文件名（包含时间戳）
+				var now = new Date();
+				var filename = 'svgnest_quantities_' + 
+					now.getFullYear() + 
+					String(now.getMonth() + 1).padStart(2, '0') + 
+					String(now.getDate()).padStart(2, '0') + '_' +
+					String(now.getHours()).padStart(2, '0') + 
+					String(now.getMinutes()).padStart(2, '0') + 
+					'.json';
+				
+				// 创建并下载文件
+				var blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
+				saveAs(blob, filename);
+				
+				// 显示成功消息
+				message.innerHTML = 'Part quantities exported successfully to ' + filename;
+				message.className = 'active animated bounce';
+				
+				return false;
+			};
+			
+			// 导入零件数量配置从JSON文件
+			quantityImport.onchange = function(e) {
+				var file = e.target.files[0];
+				if (!file) return;
+				
+				if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+					message.innerHTML = 'Please select a JSON file';
+					message.className = 'error animated bounce';
+					return;
+				}
+				
+				var reader = new FileReader();
+				reader.onload = function(e) {
+					try {
+						var importData = JSON.parse(e.target.result);
+						
+						// 验证文件格式
+						if (!importData.quantities || typeof importData.quantities !== 'object') {
+							throw new Error('Invalid file format: missing quantities data');
+						}
+						
+						// 应用导入的数量设置到输入框
+						var inputs = partList.querySelectorAll('input[type="number"]');
+						var appliedCount = 0;
+						
+						inputs.forEach(function(input) {
+							var treeIndex = parseInt(input.getAttribute('data-tree-index'));
+							if (importData.quantities.hasOwnProperty(treeIndex)) {
+								var quantity = parseInt(importData.quantities[treeIndex]);
+								if (quantity > 0) {
+									input.value = quantity;
+									appliedCount++;
+								}
+							}
+						});
+						
+						// 更新内存中的数量设置
+						partQuantities = Object.assign({}, importData.quantities);
+						
+						// 显示成功消息
+						if (appliedCount > 0) {
+							message.innerHTML = 'Successfully imported quantities for ' + appliedCount + ' parts';
+							message.className = 'active animated bounce';
+						} else {
+							message.innerHTML = 'Import completed, but no matching parts found';
+							message.className = 'warning animated bounce';
+						}
+						
+					} catch (error) {
+						message.innerHTML = 'Error importing file: ' + error.message;
+						message.className = 'error animated bounce';
+					}
+				};
+				
+				reader.readAsText(file);
+				
+				// 清空文件输入，允许重复选择同一文件
+				e.target.value = '';
 			};
 			
 			// 全屏模态框相关函数
@@ -944,6 +1046,13 @@
 				<div id="partQuantityWrapper">
 					<h2>Set Part Quantities</h2>
 					<div id="partList"></div>
+					<div class="quantity-controls">
+						<div class="quantity-file-controls">
+							<label for="quantityImport" class="button import-btn">Import JSON</label>
+							<input type="file" id="quantityImport" accept=".json" style="display: none;">
+							<a href="#" class="button export-btn" id="quantityExport">Export JSON</a>
+						</div>
+					</div>
 					<a href="#" class="button" id="quantitySave">Confirm Quantities</a>
 				</div>
 			</div>
