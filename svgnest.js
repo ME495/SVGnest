@@ -553,7 +553,6 @@
 			
 			var p = new Parallel(nfpPairs, {
 				env: {
-					binPolygon: binPolygon,
 					searchEdges: config.exploreConcave,
 					useHoles: config.useHoles
 				},
@@ -756,10 +755,15 @@
 				worker.nfpCache = nfpCache;
 				
 				// can't use .spawn because our data is an array
-				var p2 = new Parallel([placelist.slice(0)], {
-					env: {
-						self: worker
-					},
+				// move heavy data (binPolygon/config/nfpCache/paths) into the data payload to avoid huge env stringify
+				var placementPayload = {
+					paths: placelist.slice(0),
+					binPolygon: binPolygon,
+					config: config,
+					nfpCache: nfpCache
+				};
+				var p2 = new Parallel([placementPayload], {
+					env: {},
 					evalPath: 'util/eval.js'
 				});
 				

@@ -56,13 +56,18 @@ function PlacementWorker(binPolygon, paths, ids, rotations, config, nfpCache){
 	
 	// return a placement for the paths/rotations given
 	// happens inside a webworker
-	this.placePaths = function(paths){
+	this.placePaths = function(payload){
+		
+		var paths = (payload && payload.paths) ? payload.paths : [];
+		var self = {
+			binPolygon: payload ? payload.binPolygon : null,
+			config: payload ? payload.config : null,
+			nfpCache: payload ? payload.nfpCache : null
+		};
 
-		var self = global.env.self;
-
-		if(!self.binPolygon){
+		if(!self || !self.binPolygon){
 			return null;
-		}		
+		}
 		
 		var i, j, k, m, n, path;
 		
