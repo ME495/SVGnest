@@ -229,6 +229,7 @@
 			
 			// 获取所有零件，排除容器
 			parts = Array.prototype.slice.call(svg.childNodes);
+			var tree = this.getParts(parts.slice(0));
 			var binindex = parts.indexOf(bin);
 
 			// 计算 bin 在 tree 的扁平先序序列中的索引（若找不到则返回 -1）
@@ -260,9 +261,8 @@
 			if(binindex >= 0){
 				// 不将容器作为零件处理
 				parts.splice(binindex, 1);
-				
-				tree = this.getParts(parts);
-				binTreeIndex = findBinTreeIndex(tree, binindex);
+
+				var binTreeIndex = findBinTreeIndex(tree, binindex);
 				partQuantities.splice(binTreeIndex, 1);
 			}
 			
