@@ -215,13 +215,13 @@ function PlacementWorker(binPolygon, paths, ids, rotations, config, nfpCache){
 				}
 				finalNfp = f;
 				
-				// choose placement that results in the smallest bounding box
-				// could use convex hull instead, but it can create oddly shaped nests (triangles or long slivers) which are not optimal for real-world use
+				// choose placement that minimizes bounding box height (height first, then width, then x as tie-breaker)
 				// todo: generalize gravity direction
+				var minheight = null;
+				var minscore = null;
 				var minwidth = null;
-				var minarea = null;
 				var minx = null;
-				var nf, area, shiftvector;
+				var nf, shiftvector;
 
 				for(j=0; j<finalNfp.length; j++){
 					nf = finalNfp[j];
@@ -251,12 +251,17 @@ function PlacementWorker(binPolygon, paths, ids, rotations, config, nfpCache){
 						
 						var rectbounds = GeometryUtil.getPolygonBounds(allpoints);
 						
-						// weigh width more, to help compress in direction of gravity
-						// area = rectbounds.width*2 + rectbounds.height;
-						area = rectbounds.width + rectbounds.height;
+						// primary objective: minimize height
+						var score = rectbounds.height;
 						
-						if(minarea === null || area < minarea || (GeometryUtil.almostEqual(minarea, area) && (minx === null || shiftvector.x < minx))){
-							minarea = area;
+						if(
+							minscore === null
+							|| score < minscore
+							|| (GeometryUtil.almostEqual(minscore, score) && (minwidth === null || rectbounds.width < minwidth))
+							|| (GeometryUtil.almostEqual(minscore, score) && GeometryUtil.almostEqual(minwidth, rectbounds.width) && (minx === null || shiftvector.x < minx))
+						){
+							minscore = score;
+							minheight = rectbounds.height;
 							minwidth = rectbounds.width;
 							position = shiftvector;
 							minx = shiftvector.x;
@@ -269,8 +274,8 @@ function PlacementWorker(binPolygon, paths, ids, rotations, config, nfpCache){
 				}
 			}
 			
-			if(minwidth){
-				fitness += minwidth/binarea;
+			if(minheight){
+				fitness += minheight/binarea;
 			}
 			
 			for(i=0; i<placed.length; i++){
