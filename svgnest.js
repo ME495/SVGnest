@@ -230,11 +230,40 @@
 			// 获取所有零件，排除容器
 			parts = Array.prototype.slice.call(svg.childNodes);
 			var binindex = parts.indexOf(bin);
+
+			// 计算 bin 在 tree 的扁平先序序列中的索引（若找不到则返回 -1）
+			function findBinTreeIndex(t, targetSource){
+				var idx = -1;
+				var cursor = 0;
+				function dfs(node){
+					if(idx !== -1){ return; }
+					// 访问当前节点
+					if(typeof node.source === 'number' && node.source === targetSource){
+						idx = cursor;
+					}
+					cursor++;
+					// 递归访问子节点（孔洞）
+					if(node.children && node.children.length){
+						for(var k=0;k<node.children.length;k++){
+							dfs(node.children[k]);
+							if(idx !== -1){ return; }
+						}
+					}
+				}
+				for(var i=0;i<t.length;i++){
+					dfs(t[i]);
+					if(idx !== -1){ break; }
+				}
+				return idx;
+			}
 			
 			if(binindex >= 0){
 				// 不将容器作为零件处理
 				parts.splice(binindex, 1);
-				partQuantities.splice(binindex, 1);
+				
+				tree = this.getParts(parts);
+				binTreeIndex = findBinTreeIndex(tree, binindex);
+				partQuantities.splice(binTreeIndex, 1);
 			}
 			
 			// 首先构建初始树结构以获取顶层元素
