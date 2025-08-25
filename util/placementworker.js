@@ -252,7 +252,8 @@ function PlacementWorker(binPolygon, paths, ids, rotations, config, nfpCache){
 						var rectbounds = GeometryUtil.getPolygonBounds(allpoints);
 						
 						// weigh width more, to help compress in direction of gravity
-						area = rectbounds.width*2 + rectbounds.height;
+						// area = rectbounds.width*2 + rectbounds.height;
+						area = rectbounds.width + rectbounds.height;
 						
 						if(minarea === null || area < minarea || (GeometryUtil.almostEqual(minarea, area) && (minx === null || shiftvector.x < minx))){
 							minarea = area;
